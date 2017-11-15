@@ -321,7 +321,7 @@ static PyObject *cpeg_match (PyObject *self, PyObject *args) {
 	if (!CAPSTACK_EMPTY())
 	    printf("Capstack dump: %d entries\n", capstackpos+1);
 	while (!CAPSTACK_EMPTY()) {
-	    printf("%d %d %d\n", CAPSTACK_TOP().type, CAPSTACK_TOP().kind, CAPSTACK_TOP().pos - str);
+	    printf("%d %d %ld\n", CAPSTACK_TOP().type, CAPSTACK_TOP().kind, (long)(CAPSTACK_TOP().pos - str));
 	    CAPSTACK_POP();
 	}
 	return Py_BuildValue("i", result - str);

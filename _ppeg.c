@@ -2665,6 +2665,10 @@ static const char *match (const char *o, const char *s, const char *e,
                 else if (PyInt_Check(result)) {
                     res = PyInt_AsLong(result);
                 }
+                else {
+                    Py_DECREF(result);
+                    goto fail;
+                }
                 Py_DECREF(result);
                 if (res == -1 && PyErr_Occurred())
                     return NULL;
