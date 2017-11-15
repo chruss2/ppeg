@@ -1176,6 +1176,8 @@ PyObject *Pattern_concat(PyObject *self, PyObject *other) {
     {
         Instruction *np;
         result = empty_patt(self, patsize(self) + patsize(other));
+        if (result == NULL)
+            goto ret;
         np = patprog(result);
         if (result) {
             Instruction *p = np + addpatt(result, np, self);
