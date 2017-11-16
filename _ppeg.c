@@ -1823,8 +1823,12 @@ static int pushallvalues (CapState *cs, int addextra) {
             return -1;
         return 1;
     }
-    while (!isclosecap(cs->cap))
-        n += pushcapture(cs);
+    while (!isclosecap(cs->cap)) {
+        int count = pushcapture(cs);
+        if (count == -1)
+            return -1;
+        n += count;
+    }
     if (addextra || n == 0) {  /* need extra? */
         PyObject *str = PyString_FromStringAndSize(co->s, cs->cap->s - co->s);
         if (str == NULL)
@@ -2007,6 +2011,8 @@ static int tablecap (CapState *cs) {
                 if (id == NULL && PyErr_Occurred())
                     goto err;
                 k = pushallvalues(cs, 0);
+                if (k == -1)
+                    goto err;
                 if (k == 0)
                     continue;
                 if (result_dict == NULL) {
@@ -2026,6 +2032,8 @@ static int tablecap (CapState *cs) {
             }
             else {
                 int k = pushcapture(cs);
+                if (k == -1)
+                    goto err;
                 Py_ssize_t values_len = PySequence_Size(cs->values);
                 PyObject *slice = PySequence_GetSlice(cs->values, -k, values_len);
                 if (slice == NULL)
@@ -2159,6 +2167,11 @@ static int functioncap (CapState *cs) {
     }
     cs->values = captures;
     n = pushallvalues(cs, 0);
+    if (n == -1) {
+        Py_DECREF(captures);
+        Py_DECREF(fn);
+        return -1;
+    }
     cs->values = temp;
     temp = PyObject_CallFunctionObjArgs((PyObject*)&PyTuple_Type, captures, NULL);
     if (temp == NULL) {
@@ -2199,6 +2212,10 @@ static int foldcap (CapState *cs) {
     }
     while (!isclosecap(cs->cap)) {
         PyObject *val = getonecapture(cs);
+        if (val == NULL) {
+            Py_DECREF(fn);
+            return -1;
+        }
         accum = PyObject_CallFunctionObjArgs(fn, accum, val, NULL);
         Py_DECREF(val);
         if (accum == NULL) {
@@ -2251,6 +2268,11 @@ static int runtimecap (Capture *close, Capture *ocap,
     pushluaval(&cs);
 #endif
     n = pushallvalues(&cs, 0);
+    if (n == -1) {
+        Py_DECREF(result);
+        Py_DECREF(fn);
+        return -1;
+    }
     temp = PyObject_CallFunctionObjArgs((PyObject*)&PyTuple_Type, result, NULL);
     Py_DECREF(result);
     if (temp == NULL) {
