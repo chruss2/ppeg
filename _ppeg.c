@@ -106,7 +106,7 @@ static int resize_patt(PyObject *patt, Py_ssize_t n) {
         return -1;
     }
 
-    memset(p, 0, (sizeof(Instruction) * n+1));
+    memset(p, 0, (sizeof(Instruction) * (n+1)));
     setinst(p + n, IEnd, 0);
     patlen(patt) = n + 1;
     return 0;
