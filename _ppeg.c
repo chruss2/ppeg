@@ -1996,60 +1996,100 @@ static int backrefcap (CapState *cs) {
 
 static int tablecap (CapState *cs) {
     int n = 0;
-    PyObject *result = PyList_New(0);
-    if (result == NULL) {
-        return -1;
-    }
-    if (PyList_Append(cs->values, result) == -1) {
-        Py_DECREF(result);
-        return -1;
-    }
-    if (isfullcap(cs->cap++)) {
-        Py_DECREF(result);
-        return 1; /* table is empty */
-    }
-    while (!isclosecap(cs->cap)) {
-#if 0
-        if (captype(cs->cap) == Cgroup && cs->cap->idx != 0 ) { /* named group? */
-            int k;
-            PyObject *id = env2val(cs->patt, cs->cap->idx);
-            if (id == NULL && PyErr_Occurred())
-                return -1;
-            k = pushallvalues(cs, 0);
-            if (k == 0) {
-                continue;
+    PyObject *result_list = NULL;
+    PyObject *result_dict = NULL;
+    if (!isfullcap(cs->cap++)) {
+        while (!isclosecap(cs->cap)) {
+            if (captype(cs->cap) == Cgroup && cs->cap->idx != 0 ) { /* named group? */
+                int k;
+                PyObject *item;
+                PyObject *id = env2val(cs->patt, cs->cap->idx);
+                if (id == NULL && PyErr_Occurred())
+                    goto err;
+                k = pushallvalues(cs, 0);
+                if (k == 0)
+                    continue;
+                if (result_dict == NULL) {
+                    result_dict = PyDict_New();
+                    if (result_dict == NULL)
+                        goto err;
+                }
+                item = PySequence_GetItem(cs->values, -k); /* use just one value */
+                if (item == NULL)
+                    goto err;
+                if (PyDict_SetItem(result_dict, id, item) == -1) {
+                    Py_DECREF(item);
+                    goto err;
+                }
+                if (PySequence_DelSlice(cs->values, -k, PySequence_Size(cs->values)) == -1)
+                    goto err;
             }
-            else if (k > 1) {
+            else {
+                int k = pushcapture(cs);
+                Py_ssize_t values_len = PySequence_Size(cs->values);
+                PyObject *slice = PySequence_GetSlice(cs->values, -k, values_len);
+                if (slice == NULL)
+                    goto err;
+                if (result_list == NULL) {
+                    result_list = PyList_New(0);
+                    if (result_list == NULL)
+                        goto err;
+                }
+                if (PySequence_SetSlice(result_list, n+1, n+1, slice) == -1) {
+                    Py_DECREF(slice);
+                    goto err;
+                }
+                if (PySequence_DelSlice(cs->values, -k, values_len) == -1) {
+                    Py_DECREF(slice);
+                    goto err;
+                }
+                Py_DECREF(slice);
+                n += k;
             }
         }
-        else {
-#endif
-            int k = pushcapture(cs);
-            Py_ssize_t values_len = PySequence_Size(cs->values);
-            PyObject *slice = PySequence_GetSlice(cs->values, -k, values_len);
-            if (slice == NULL) {
-                Py_DECREF(result);
-                return -1;
-            }
-            if (PySequence_SetSlice(result, n+1, n+1, slice) == -1) {
-                Py_DECREF(slice);
-                Py_DECREF(result);
-                return -1;
-            }
-            if (PySequence_DelSlice(cs->values, -k, values_len) == -1) {
-                Py_DECREF(slice);
-                Py_DECREF(result);
-                return -1;
-            }
-            Py_DECREF(slice);
-            n += k;
-#if 0
-        }
-#endif
     }
+    if (result_list == NULL && result_dict == NULL) {
+        result_list = PyList_New(0);
+        if (result_list == NULL)
+            return -1;
+    }
+    if (result_list != NULL && result_dict != NULL) {
+        /* Transfer all the list items over to the dict */
+        Py_ssize_t values_len = PySequence_Size(result_list);
+        Py_ssize_t i;
+        for (i = 0; i < values_len; i++) {
+            PyObject *item;
+            PyObject *key = PyInt_FromSsize_t(i);
+            if (key == NULL)
+                goto err;
+            item = PySequence_GetItem(result_list, i);
+            if (item == NULL) {
+                Py_DECREF(key);
+                goto err;
+            }
+            if (PyDict_SetItem(result_dict, key, item) == -1) {
+                Py_DECREF(key);
+                Py_DECREF(item);
+                goto err;
+            }
+        }
+        Py_DECREF(result_list);
+        result_list = NULL;
+    }
+    if (result_list == NULL)
+        result_list = result_dict;
+    if (PyList_Append(cs->values, result_list) == -1)
+        goto err;
     cs->cap++;
-    Py_DECREF(result);
+    Py_DECREF(result_list);
     return 1;
+
+err:
+    if (result_list != NULL)
+        Py_DECREF(result_list);
+    if (result_dict != NULL)
+        Py_DECREF(result_dict);
+    return -1;
 }
 
 static int querycap (CapState *cs) {
