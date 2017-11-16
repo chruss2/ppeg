@@ -111,7 +111,7 @@ typedef union Instruction {
   struct Inst {
     byte code;
     byte aux;
-    short offset;
+    int offset;
   } i;
   PattFunc f;
   byte buff[1];
@@ -148,14 +148,14 @@ typedef enum CapKind {
 
 typedef struct Capture {
   const char *s;  /* position */
-  short idx;
+  int idx;
   byte kind;
   byte siz;
 } Capture;
 
 
 /* maximum size (in elements) for a pattern */
-#define MAXPATTSIZE	(SHRT_MAX - 10)
+#define MAXPATTSIZE	(INT_MAX - 10)
 
 
 /* size (in elements) for an instruction plus extra l bytes */
