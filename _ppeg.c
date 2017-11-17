@@ -2084,8 +2084,10 @@ static int tablecap (CapState *cs) {
         Py_DECREF(result_list);
         result_list = NULL;
     }
-    if (result_list == NULL)
+    if (result_list == NULL) {
         result_list = result_dict;
+        result_dict = NULL;
+    }
     if (PyList_Append(cs->values, result_list) == -1)
         goto err;
     cs->cap++;
